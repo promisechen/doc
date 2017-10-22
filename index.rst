@@ -20,4 +20,5 @@
     kbase/index
     dpdk/index
     suricata/index
+    cracker/index
 
