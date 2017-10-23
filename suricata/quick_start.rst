@@ -41,7 +41,6 @@ libnss3-dev libnspr4-dev libjansson4 libjansson-dev libyaml-dev libcap-ng0 libca
     #make -j3
     #make make-full
 
-
 配置
 -----
 
@@ -68,7 +67,7 @@ libnss3-dev libnspr4-dev libjansson4 libjansson-dev libyaml-dev libcap-ng0 libca
 
 * 启动文件保存功能
 
-  增加我们的测试文件( test.rules)到"default-rule-path:", 像下面这样::
+增加我们的测试文件( test.rules)到"default-rule-path:", 像下面这样::
 
   default-rule-path: /usr/local/suricata/etc/suricata/rules
   rule-files:  - test.rules  - botcc.rules

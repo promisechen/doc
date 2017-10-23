@@ -13,5 +13,4 @@
     :titlesonly:
 
     OD.rst
-    IDA.rst
-    crack.rst
+    crackapp.rst

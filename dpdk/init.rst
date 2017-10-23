@@ -1,26 +1,15 @@
+dpdk源码分析
+==============
 
 http://www.cnblogs.com/MerlinJ/p/4074391.html
-
 http://www.cnblogs.com/ding-linux-coder/p/4922583.html
 
-
 log
-====
-
-样例
-=================
-
-相关的外部接口及变量
----------------------
-
-函数调用
----------
-
-主要接口描述
-------------
+-----
 
 rte_eal_cpu_init
-=================
+--------------------
+
 该函数主要是解析/sys/devices/system/cpu文件，获取物理及逻辑核心，并填充cpu_info信息。
 
 主要设置了全局变量rte_config的lcore_count lcore_role,该字段是当前机器所有逻辑核心数。
@@ -40,7 +29,7 @@ rte_eal_cpu_init
     
 
 相关的外部接口及变量
----------------------
+***********************
 
 rte_config
 
@@ -49,7 +38,8 @@ lcore_config
 eal_parse_sysfs_value
 
 函数调用
----------
+**********
+
 rte_eal_cpu_init
 
     cpu_detected
@@ -59,7 +49,7 @@ rte_eal_cpu_init
     eal_cpu_socket_id
 
 主要接口描述
-------------
+*************
 
 * cpu_detected(lcore_id)
 
@@ -87,79 +77,81 @@ rte_eal_cpu_init
       会lcore_config[lcore_id].socket_id = 0;否则退出程序，打印堆栈。
       
 eal_parse_args
-===============
- .. code-block:: c
+------------------
 
- EAL common options:
-  -c COREMASK         Hexadecimal bitmask of cores to run on
-  -l CORELIST         List of cores to run on
-                      The argument format is <c1>[-c2][,c3[-c4],...]
-                      where c1, c2, etc are core indexes between 0 and 128
-  --lcores COREMAP    Map lcore set to physical cpu set
-                      The argument format is
-                            '<lcores[@cpus]>[<,lcores[@cpus]>...]'
-                      lcores and cpus list are grouped by '(' and ')'
-                      Within the group, '-' is used for range separator,
-                      ',' is used for single number separator.
-                      '( )' can be omitted for single element group,
-                      '@' can be omitted if cpus and lcores have the same value
-  --master-lcore ID   Core ID that is used as master
-  -n CHANNELS         Number of memory channels
-  -m MB               Memory to allocate (see also --socket-mem)
-  -r RANKS            Force number of memory ranks (don't detect)
-  -b, --pci-blacklist Add a PCI device in black list.
-                      Prevent EAL from using this PCI device. The argument
-                      format is <domain:bus:devid.func>.
-  -w, --pci-whitelist Add a PCI device in white list.
-                      Only use the specified PCI devices. The argument format
-                      is <[domain:]bus:devid.func>. This option can be present
-                      several times (once per device).
-                      [NOTE: PCI whitelist cannot be used with -b option]
-  --vdev              Add a virtual device.
-                      The argument format is <driver><id>[,key=val,...]
-                      (ex: --vdev=eth_pcap0,iface=eth2).
-  -d LIB.so|DIR       Add a driver or driver directory
-                      (can be used multiple times)
-  --vmware-tsc-map    Use VMware TSC map instead of native RDTSC
-  --proc-type         Type of this process (primary|secondary|auto)
-  --syslog            Set syslog facility
-  --log-level         Set default log level
-  -v                  Display version information on startup
-  -h, --help          This help
+::
 
-    EAL options for DEBUG use only:
-  --huge-unlink       Unlink hugepage files after init
-  --no-huge           Use malloc instead of hugetlbfs
-  --no-pci            Disable PCI
-  --no-hpet           Disable HPET
-  --no-shconf         No shared config (mmap'd files)
-
-    EAL Linux options:
-  --socket-mem        Memory to allocate on sockets (comma separated values)
-  --huge-dir          Directory where hugetlbfs is mounted
-  --file-prefix       Prefix for hugepage filenames
-  --base-virtaddr     Base virtual address
-  --create-uio-dev    Create /dev/uioX (usually done by hotplug)
-  --vfio-intr         Interrupt mode for VFIO (legacy|msi|msix)
-  --xen-dom0          Support running on Xen dom0 without hugetlbfs
+     EAL common options:
+      -c COREMASK         Hexadecimal bitmask of cores to run on
+      -l CORELIST         List of cores to run on
+                          The argument format is <c1>[-c2][,c3[-c4],...]
+                          where c1, c2, etc are core indexes between 0 and 128
+      --lcores COREMAP    Map lcore set to physical cpu set
+                          The argument format is
+                                '<lcores[@cpus]>[<,lcores[@cpus]>...]'
+                          lcores and cpus list are grouped by '(' and ')'
+                          Within the group, '-' is used for range separator,
+                          ',' is used for single number separator.
+                          '( )' can be omitted for single element group,
+                          '@' can be omitted if cpus and lcores have the same value
+      --master-lcore ID   Core ID that is used as master
+      -n CHANNELS         Number of memory channels
+      -m MB               Memory to allocate (see also --socket-mem)
+      -r RANKS            Force number of memory ranks (don't detect)
+      -b, --pci-blacklist Add a PCI device in black list.
+                          Prevent EAL from using this PCI device. The argument
+                          format is <domain:bus:devid.func>.
+      -w, --pci-whitelist Add a PCI device in white list.
+                          Only use the specified PCI devices. The argument format
+                          is <[domain:]bus:devid.func>. This option can be present
+                          several times (once per device).
+                          [NOTE: PCI whitelist cannot be used with -b option]
+      --vdev              Add a virtual device.
+                          The argument format is <driver><id>[,key=val,...]
+                          (ex: --vdev=eth_pcap0,iface=eth2).
+      -d LIB.so|DIR       Add a driver or driver directory
+                          (can be used multiple times)
+      --vmware-tsc-map    Use VMware TSC map instead of native RDTSC
+      --proc-type         Type of this process (primary|secondary|auto)
+      --syslog            Set syslog facility
+      --log-level         Set default log level
+      -v                  Display version information on startup
+      -h, --help          This help
+        EAL options for DEBUG use only:
+      --huge-unlink       Unlink hugepage files after init
+      --no-huge           Use malloc instead of hugetlbfs
+      --no-pci            Disable PCI
+      --no-hpet           Disable HPET
+      --no-shconf         No shared config (mmap'd files) 
+        EAL Linux options:
+      --socket-mem        Memory to allocate on sockets (comma separated values)
+      --huge-dir          Directory where hugetlbfs is mounted
+      --file-prefix       Prefix for hugepage filenames
+      --base-virtaddr     Base virtual address
+      --create-uio-dev    Create /dev/uioX (usually done by hotplug)
+      --vfio-intr         Interrupt mode for VFIO (legacy|msi|msix)
+      --xen-dom0          Support running on Xen dom0 without hugetlbfs
 
 
 相关的外部接口和变量
----------------------
+*************************
 
 函数调用
---------
+***********
 
     eal_reset_internal_config(&internal_config);//初始化默认参数
     
 主要接口描述
-------------
-*   eal_parse_coremask:解析-c 参数，并会修改rte_config及lcore_config中lcore对应的计数、flag等
+*************
 
-*   eal_parse_corelist:解析-l 与-c效果相同;可以同时添加-c -l,但是会取后面的那个选项的配置。
+    *   eal_parse_coremask:解析-c 参数，并会修改rte_config及lcore_config中lcore对应的计数、flag等
 
-*   eal_parse_lcores :解析--lcore,重新设置lcore绑定的cpu. 
-   .. code-block:: c
+    *   eal_parse_corelist:解析-l 与-c效果相同;可以同时添加-c -l,但是会取后面的那个选项的配置。
+
+    *   eal_parse_lcores :解析--lcore,重新设置lcore绑定的cpu. 
+
+.. code-block:: c
+
     -c指定的核心，必须都重新设定，该函数首先会lcore_config[idx].core_index = -1;将所有
     核心对应设置为无效。
     参考下面的注释，以“,”隔开。
@@ -206,7 +198,7 @@ eal_parse_args
     其他参数大多存在来internal_config全局变量中
 
 eal_hugepage_info_init 
-========================
+------------------------
 
 只有在未设置no_hugetlbfs并且未设置xen的支持且为主进程时，才会调用该函数。
 
@@ -225,10 +217,10 @@ eal_hugepage_info_init
 * 获取大页个数
 
 相关的外部接口及变量
----------------------
+*************************
 
 函数调用
----------
+***********
 
 rte_str_to_size 获取大页大小
 
@@ -239,7 +231,7 @@ clear_hugedir 清空大页相关文件如果没有被其他dpdk进程运行
 get_num_hugepages 获取大页个数
 
 主要接口描述
-------------
+*************
 * get_hugepage_dir: 
    :: 
 
@@ -258,14 +250,14 @@ get_num_hugepages 获取大页个数
 * get_num_hugepages: 获取大页个数，从/sys/kernel/mm/hugepages/hugepages-xxx/中获取，free_hugepages－resv_hugepages即为所求值
 
 rte_config_init
-=================
+-----------------
 初始化rte_config.mem_config，并保证主从进程的虚拟地址相同
 
 
 * 如果是主进程，则调用rte_eal_config_create，默认创建/var/run/.rte_config文件，调用mmap获取sizeof(struct rte_mem_config)大小的虚拟内存。并
 
    将共享内存的基址存到共享内存中，供子进程使用，从而保证主次进程映射的基址相同。
-  参见rte_eal_config.h 中的struct rte_mem_config结构体
+   参见rte_eal_config.h 中的struct rte_mem_config结构体
 
 * 如果是从进程则会先获取先调用mmap,获取主进程设置的rte_config.mem_cfg_addr(主进程映射的地址空间)，
 
@@ -273,7 +265,8 @@ rte_config_init
   
   注意:从进程将一直等待主进程(rte_eal_mcfg_complete完成mem配置)，才会从新调用rte_eal_config_reattach()
   
-  .. code-block:: c
+.. code-block:: c
+
     rte_config_init(void)
     {
     	rte_config.process_type = internal_config.process_type;
@@ -296,15 +289,15 @@ rte_config_init
 
 
 相关的外部接口及变量
----------------------
+*************************
 
 rte_config
 
 函数调用
----------
+***********
 
 主要接口描述
-------------
+*************
 
 * rte_eal_config_create(主进程调用) 首先调用eal_runtime_config_path 获取rte_config的文件路径
   
@@ -331,9 +324,10 @@ rte_eal_mcfg_wait_complete:等待主进程rte_eal_mcfg_complete完成内存配�
 
 
 rte_eal_pci_init(todo)
-====================
+-------------------------
+
 相关的外部接口及变量
----------------------
+*************************
 
 pci_driver_list 驱动列表
 pci_device_list 设备列表
@@ -341,30 +335,30 @@ nb_ports   端口总个数
 rte_eth_devices 端口对应数组指针
 
 函数调用
----------
+***********
 rte_eth_dev_init 初始化端口数组  
 rte_eth_driver_register 注册端口初始化销毁的函数回调  
 
 
 主要接口描述
-------------
+*************
 
 rte_eal_memory_init
-====================
+---------------------
 
 主进程调用rte_eal_hugepage_init，子进程调用rte_eal_hugepage_attach
 
 相关的外部接口及变量
----------------------
+*************************
 
 函数调用
----------
+***********
 
 主要接口描述
-------------
+*************
 
 rte_eal_hugepage_init
-=======================
+-------------------------
 
 lib/librte_eal/linuxapp/eal/eal_memory.c
 
@@ -406,14 +400,17 @@ lib/librte_eal/linuxapp/eal/eal_memory.c
  }
 
 相关的外部接口及变量
----------------------
+*************************
 
 函数调用
----------
+***********
 
 主要接口描述
-------------
-*  map_all_hugepages(struct hugepage_file *hugepg_tbl,struct hugepage_info *hpi, int orig) 
+*************
+
+* map_all_hugepages 
+  
+(struct hugepage_file*hugepg_tbl,struct hugepage_info*hpi, int orig) 
 
   :: 
   
@@ -429,6 +426,7 @@ lib/librte_eal/linuxapp/eal/eal_memory.c
     vma_addr = (char *)vma_addr + hugepage_sz;
     
 第二次重新mmap的逻辑如下：
+
 :: 
 
     首先从当前i处开始找物理连续的内存页个数n，然后调用get_virtual_area获取足够的虚拟地址。get_virtual_area将会尽最大努力获取到
@@ -468,6 +466,7 @@ lib/librte_eal/linuxapp/eal/eal_memory.c
 
 
 * find_physaddrs 获取所有共享内存的物理地址，其实都是调用rte_mem_virt2phy实现的。
+
 ::
 
   rte_mem_virt2phy 根据虚拟地址转换成物理地址。从/proc/self/pagemap读取相关page信息.总体思想是获取page,根据page加上页内偏移算出物理地址。
@@ -475,15 +474,18 @@ lib/librte_eal/linuxapp/eal/eal_memory.c
   具体参考：https://shanetully.com/2014/12/translating-virtual-addresses-to-physcial-addresses-in-user-space/
 
 * find_numasocket 获取虚拟内存对应的socketid；
+
 ::
 
-从/proc/self/numa_maps读取出现huge或者internal_config.hugefile_prefix字符的行,类似
+    从/proc/self/numa_maps读取出现huge或者internal_config.hugefile_prefix字符的行,类似
 
-  “01e00000 prefer:0 file=/dev/hugepages/rtemap_15 huge dirty=1 N0=1" 其中01e00000是虚拟地址，NO表示：N代表numa,0代表是socketid等于0
+    “01e00000 prefer:0 file=/dev/hugepages/rtemap_15 huge dirty=1 N0=1" 其中01e00000是虚拟地址，NO表示：N代表numa,0代表是socketid等于0
+
 * sort_by_physaddr 根据物理内存排序
 
-* get_virtual_area(size_t *size, size_t hugepage_sz) 获取虚拟地址空间.
-  ::
+* get_virtual_area(size_t*size, size_t hugepage_sz) 获取虚拟地址空间.
+
+::
   
     有4点：1. 使用mmap分配size+hugepage_sz大小空间 2.如果分配不出来减去hugepage_sz
     在分配，直至分配出来为止。并修改size值，把他传给调用者。3,munmap掉刚分配出的内存。4.按照hugepage_sz大小对其，并返回对其后的地址（在调用mmap时故意多加来一个页面大小）
@@ -513,3 +515,14 @@ lib/librte_eal/linuxapp/eal/eal_memory.c
 
 
 
+样例
+****
+
+相关的外部接口及变量
+*************************
+
+函数调用
+***********
+
+主要接口描述
+*************

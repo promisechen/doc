@@ -5,12 +5,23 @@ suricata4.0.1源码分析
 约定
 --------------
 
+* 代码对应位置
+
+  | 在做review的时候，会在这个链接中写相关注释，尽量不在本文档中贴代码。
+  | https://github.com/promisechen/suricata/tree/master/suricata-4.0.1
+
+* 交流方式
+
+  | 可以通过微信promisechen或issue(推荐)进行沟通
+  | 可在这里建立issue https://github.com/promisechen/suricata/issues 
+
 * 假定按照这样进行配置编译
     
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-nfqueue --enable-lua
+  | ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-nfqueue --enable-lua
 
 
 当前进度：开始分析AppLayerSetup->AppLayerParserRegisterProtocolParsers->RegisterHTPParsers
+
 
 概述及全局观览
 ----------------

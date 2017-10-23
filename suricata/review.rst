@@ -1,5 +1,5 @@
-源码笔记
-=========
+源码笔记(3.2.1)
+=================
 
 调试
 -----------
@@ -64,14 +64,15 @@ DoReassemble 是重组完成后，调用
 alpd_ctx是协议识别的全局变量，存放了各种协议识别使用的数据：如字符串，状态机等
 
 协议识别--识别过程 
-AppLayerProtoDetectGetProto -> AppLayerProtoDetectPMGetProto:通过特征串匹配  ，这个就是一个匹配，代码也不多
-                            -> AppLayerProtoDetectPPGetProto:通过探测方式识别，主动发送报文探测结果  
+
+ | AppLayerProtoDetectGetProto -> AppLayerProtoDetectPMGetProto:通过特征串匹配  ，这个就是一个匹配，代码也不多
+   | -> AppLayerProtoDetectPPGetProto:通过探测方式识别，主动发送报文探测结果  
 
 AppLayerParserParse；这个没有在分析                         
 
 协议识别--初始化过程(特征串方式):                           
-AppLayerSetup -> AppLayerProtoDetectSetup:初始化单模多模算法等
-                 AppLayerParserRegisterProtocolParsers:各协议添加字符串,会调用个协议的RegisterxxxxxParsers.
+  AppLayerSetup -> AppLayerProtoDetectSetup:初始化单模多模算法等
+     AppLayerParserRegisterProtocolParsers:各协议添加字符串,会调用个协议的RegisterxxxxxParsers.
                         他们最终都会调用AppLayerProtoDetectPMRegisterPatternCS 和
                         AppLayerProtoDetectPMRegisterPatternCI注册字符串,而这两个函数最终都会掉AppLayerProtoDetectPMAddSignature。
                         比如:RegisterHTPParsers->HTPRegisterPatternsForProtocolDetection ->AppLayerProtoDetectPMRegisterPatternCI                        
@@ -94,12 +95,12 @@ AppLayerProtoDetectPPRegister->AppLayerProtoDetectInsertNewProbingParser->AppLay
   DetectHttpUriRegister注册uri的识别方法。最终进行识别的是PrefilterTxUri和DetectEngineInspectHttpUri进行的。  
       
 * Detect进行业务识别(SigMatchSignatures)            
-   	* 先调用SigMatchSignatures     
-   	* 在依次调用Prefilter和PrefilterTx      
-         在PrefilterTx 中调用AppLayerParserGetTx（StateGetTx） 获取到识别需要用到的相关字段值，在调用PrefilterTx进行相应方法的识别。  
-         这里是个重点, 对协议解析部分分析的时候会对StateGetTx详细阐述。       
-   	* 在调用PrefilterTxUri和DetectEngineInspectHttpUri        
-          通过streamTcp之后，就会把http的头部信息解析完了，会将uri传到这个PrefilterTxUri函数中。      
+   * 先调用SigMatchSignatures     
+   * 在依次调用Prefilter和PrefilterTx      
+
+      在PrefilterTx 中调用AppLayerParserGetTx（StateGetTx）获取到识别需要用到的相关字段值，在调用PrefilterTx进行相应方法的识别。  这里是个重点, 对协议解析部分分析的时候会对StateGetTx详细阐述。       
+
+   * 在调用PrefilterTxUri和DetectEngineInspectHttpUri 通过streamTcp之后，就会把http的头部信息解析完了，会将uri传到这个PrefilterTxUri函数中。      
 
 协议解析
 ----------
