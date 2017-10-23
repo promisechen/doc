@@ -16,7 +16,7 @@
     doc
     ├── conf.py                  - 全局配置文件
     ├── index.rst                - 根索引
-    ├── haohan_logo.png          - LOGO
+    ├── logo.png                 - LOGO
     ├── _build                   - 文档生成目录
     ├── doc_guide                - 文档编写教程与规范
     ├── make.bat                 - Windows makefile
