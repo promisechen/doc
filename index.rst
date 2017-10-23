@@ -20,5 +20,6 @@
     kbase/index
     dpdk/index
     suricata/index
+    performance/index
     cracker/index
 
