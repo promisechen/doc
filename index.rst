@@ -18,4 +18,6 @@
 
     doc_guide/index
     kbase/index
+    dpdk/index
+    suricata/index
 

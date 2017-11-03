@@ -1,20 +1,16 @@
 ..  Copyright (C), 2014-2016, HAOHAN DATA Technology Co., Ltd.
     All rights reserved.
 
-    @author zhaop
+    @author promisechen
     @date 2016.02.17
 
 
-技术知识
-========
+dpdk相关
+===========
 
 .. toctree::
     :maxdepth: 1
     :titlesonly:
 
-    cunit
-    gdb
-    netalgo/index
-    ntp
-    ipmi
-    redis
+    init.rst 
+    zp/index
