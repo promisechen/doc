@@ -1,0 +1,58 @@
+@import url("theme.css");
+
+
+.wy-nav-content {
+    max-width: 1080px
+}
+
+/*
+.wy-plain-list-disc, .rst-content .section ul, .rst-content .toctree-wrapper ul, article ul {
+    margin-bottom: 0px;
+}
+ */
+
+.rst-content .section ol p, .rst-content .section ul p {
+    margin-bottom: 4px;
+}
+
+.wy-table-responsive {
+    margin-bottom: 0px;
+}
+
+.rst-content blockquote {
+    margin-left: 0px;
+    margin-bottom: 4px;
+}
+
+.wy-body-for-nav {background:#fcfcfc;}
+.wy-nav-top {display:block;}
+.wy-nav-side {width:20%;left:0;}
+.wy-side-scroll {width:auto;}
+.wy-side-nav-search {width:auto;}
+.wy-menu.wy-menu-vertical {width:auto;}
+.wy-nav-content-wrap {margin-left:20%;}
+.wy-nav-content-wrap .wy-nav-content {padding:1.618em;}
+
+.wy-nav-side.shift {width:0px;}
+.wy-nav-content-wrap.shift {position:fixed;min-width:100%;margin-left:0px;top:0;height:100%;overflow:scroll;}
+
+/*
+@media screen and (max-width: 768px) {
+    .rst-versions {width:85%;display:none}
+    .rst-versions.shift {display:block}
+}
+*/
+
+p {
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.rst-content .highlight>pre, .rst-content .linenodiv>pre {font-size: 90%;}
+.rst-content code {font-size: 90%;}
+
+h1, h2, h3, h4, h5, h6 {margin-top:16px;}
+
+
+.faq-note { color:darkgray;font-size:smaller; }
+
