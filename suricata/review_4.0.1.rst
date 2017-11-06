@@ -116,7 +116,7 @@ PostConfLoadedSetup
             SCHInfoLoadFromConfig [label="SCHInfoLoadFromConfig"] ;
             AppLayerProtoDetectPMMapSignatures [label="AppLayerProtoDetectPMMapSignatures "] ; 
             AppLayerProtoDetectPMPrepareMpm [label="AppLayerProtoDetectPrepareState"] ; 
-            SigTableSetup [label="SigTableSetup\n注册关键字回调函数"] ; 
+            SigTableSetup [label="SigTableSetup\n注册关键字回调函数 "] ; 
             DetectSidRegister [label="DetectSidRegister"] ;
             DetectContentRegister [label="DetectContentRegister"] ; 
             DetectUricontentRegister [label="DetectUricontentRegister"] ; 
@@ -145,7 +145,7 @@ PostConfLoadedSetup
                 SigTableSetup->DetectContentRegister
                 SigTableSetup->dengdeng
                 SigTableSetup->DetectUricontentRegister
-                SigTableSetup-DetectBufferTypeFinalizeRegistration
+                SigTableSetup->DetectBufferTypeFinalizeRegistration
 
     }
 
@@ -207,6 +207,7 @@ PostConfLoadedSetup
     注册关键字的各种回调,比如注册sid,content等相关回调，在读取加载规则库、应用识别的时候将调用相关回调函数.
     目前看到这些函数应该是被SigInit调用.这里注册的关键非常的多，可以慢慢分析自己感兴趣的,其中发现很多关键字没有注册
     Match这个回调。http相关的注册项有很多,http的一些注册还会初始化一些资源,后面以DetectHttpUriRegister为例。
+
     * DetectSidRegister
         注册了重要的函数DetectSidSetup，该函数将在加载规则库的时候，被调用。
 
