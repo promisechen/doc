@@ -20,7 +20,7 @@ suricata4.0.1源码分析
   | ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-nfqueue --enable-lua
 
 
-当前进度：开始分析AppLayerSetup->AppLayerParserRegisterProtocolParsers->RegisterHTPParsers
+当前进度：开始分析PostConfLoadedSetup->TmqhSetup
 
 
 概述及全局观览
@@ -34,13 +34,15 @@ suricata4.0.1源码分析
 ==================  ============================================================================================================================= 
 host_mode             包括router和sniffer-only、auto三种模式，当使用auto模式时，在ips状态下设置为router,在ids下为sniffer-only
 alpd_ctx              协议识别的全局变量，存放了各种协议识别使用的数据：如字符串，状态机等
+sigmatch_table        特征关键字匹配表，sid、priority、msg、within、distance等等。该变量主要应用于应用的识别和规则的检测。
 ==================  ============================================================================================================================= 
 
 alpd_ctx介绍及内存布局
 ........................
 
 
-
+sigmatch_table介绍(todo)
+..........................
 
 main
 ---------
@@ -114,6 +116,11 @@ PostConfLoadedSetup
             SCHInfoLoadFromConfig [label="SCHInfoLoadFromConfig"] ;
             AppLayerProtoDetectPMMapSignatures [label="AppLayerProtoDetectPMMapSignatures "] ; 
             AppLayerProtoDetectPMPrepareMpm [label="AppLayerProtoDetectPrepareState"] ; 
+            SigTableSetup [label="SigTableSetup\n注册关键字回调函数"] ; 
+            DetectSidRegister [label="DetectSidRegister"] ;
+            DetectContentRegister [label="DetectContentRegister"] ; 
+            DetectUricontentRegister [label="DetectUricontentRegister"] ; 
+            DetectBufferTypeFinalizeRegistration [label="DetectBufferTypeFinalizeRegistration"] ;
             dengdeng [label="......"] ;
             PostConfLoadedSetup->SpmTableSetup
             PostConfLoadedSetup->MpmTableSetup
@@ -133,7 +140,12 @@ PostConfLoadedSetup
                 AppLayerProtoDetectPrepareState->AppLayerProtoDetectPMMapSignatures
                 AppLayerProtoDetectPrepareState->AppLayerProtoDetectPMPrepareMpm
             PostConfLoadedSetup->SCHInfoLoadFromConfig
-
+            PostConfLoadedSetup->SigTableSetup
+                SigTableSetup->DetectSidRegister
+                SigTableSetup->DetectContentRegister
+                SigTableSetup->dengdeng
+                SigTableSetup->DetectUricontentRegister
+                SigTableSetup-DetectBufferTypeFinalizeRegistration
 
     }
 
@@ -191,12 +203,65 @@ PostConfLoadedSetup
 
            将配置文件中的host-os-policy的配置加入到一棵radix树上，在匹配是使用。(todo:识别或重组时使用？？)
 
-      
-                              
+* SigTableSetup 
+    注册关键字的各种回调,比如注册sid,content等相关回调，在读取加载规则库、应用识别的时候将调用相关回调函数.
+    目前看到这些函数应该是被SigInit调用.这里注册的关键非常的多，可以慢慢分析自己感兴趣的,其中发现很多关键字没有注册
+    Match这个回调。http相关的注册项有很多,http的一些注册还会初始化一些资源,后面以DetectHttpUriRegister为例。
+    * DetectSidRegister
+        注册了重要的函数DetectSidSetup，该函数将在加载规则库的时候，被调用。
+
+        DetectSidSetup将会把规则库中的sidstr赋给s->id
+
+         :: 
+
+            static int DetectSidSetup (DetectEngineCtx *de_ctx, Signature *s, const char *sidstr)
+            {
+            
+                unsigned long id = 0;
+                char *endptr = NULL;
+                id = strtoul(sidstr, &endptr, 10);
+                if (endptr == NULL || *endptr != '\0') {
+            
+                SCLogError(SC_ERR_INVALID_SIGNATURE, "invalid character as arg "
+                "to sid keyword");
+                goto error;
+                }
+                if (id >= UINT_MAX) {
+            
+                SCLogError(SC_ERR_INVALID_NUMERIC_VALUE, "sid value to high, max %u", UINT_MAX);
+                goto error;
+                }
+                if (id == 0) {
+            
+                SCLogError(SC_ERR_INVALID_NUMERIC_VALUE, "sid value 0 is invalid");
+                goto error;
+                }
+                if (s->id > 0) {
+            
+                SCLogError(SC_ERR_INVALID_RULE_ARGUMENT, "duplicated 'sid' keyword detected");
+                goto error;
+                }
+            
+                s->id = (uint32_t)id;
+                return 0;
+            
+                error:
+                return -1;
+            }
+
+    * DetectPriorityRegister
+
+      注册了重要的函数DetectPrioritySetup，该函数将在加载规则库的时候，被调用。
+      DetectPrioritySetup将把规则库中的rawstr赋值给s->prio,但是相对DetectSidSetup多了一些pcre_exec、pcre_copy_substring相关函数调用,做什么用的呢？？
+      他们主要是判断关键字是否合法，并提取相关字段，注意regex、regex_study是static类型的,这2个全局变量在很多文件中都存在。
+    
+    * DetectHttpUriRegister 
+      也注册了Setup回调。注册回调之后，重点注册了DetectAppLayerMpmRegister和DetectAppLayerInspectEngineRegister(todo:检查相关注册)
+
 
 开源引擎借鉴
 -------------
 
-   支持协议维度识别和解析
-   协议识别、解析插件化
-   特征区分服务端和客户端
+  | 支持协议维度识别和解析
+  | 协议识别、解析插件化
+  | 特征区分服务端和客户端
