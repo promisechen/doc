@@ -18,3 +18,4 @@
     ntp
     ipmi
     redis
+    xiaomi
