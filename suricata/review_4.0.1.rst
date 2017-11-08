@@ -35,6 +35,8 @@ suricata4.0.1源码分析
 host_mode             包括router和sniffer-only、auto三种模式，当使用auto模式时，在ips状态下设置为router,在ids下为sniffer-only
 alpd_ctx              协议识别的全局变量，存放了各种协议识别使用的数据：如字符串，状态机等
 sigmatch_table        特征关键字匹配表，sid、priority、msg、within、distance等等。该变量主要应用于应用的识别和规则的检测。
+tmqh_table            提供了4种类型队列:simple,flow,packetpool,nfq,其中nfq不同于其他三种队列，他是内核中的Netfilter Queue。
+                      simple是简单的先入先出的普通队列,packetpool
 ==================  ============================================================================================================================= 
 
 alpd_ctx介绍及内存布局
@@ -43,6 +45,36 @@ alpd_ctx介绍及内存布局
 
 sigmatch_table介绍(todo)
 ..........................
+
+
+tmqh_table对应的Tmqh结构体说明
+.................................
+todo:tm_queuehandlers.h中
+
+ :: 
+    enum {
+    
+        TMQH_SIMPLE,
+        TMQH_NFQ,
+        TMQH_PACKETPOOL,
+        TMQH_FLOW,
+        
+        TMQH_SIZE,
+    };
+    
+    typedef struct Tmqh_ {
+    
+        const char *name;                          
+        Packet *(*InHandler)(ThreadVars *);           /*< 是针对ThreadVars的输入，而非入队的意思，即从相应队列取出Packet。by clx 20171107 */
+        void (*InShutdownHandler)(ThreadVars *);      /*< 貌似是把队列中的报文都拿出来的意思??。by clx 20171107 */
+        void (*OutHandler)(ThreadVars *, Packet *);   /*< 将报文压入队列中。by clx 20171107*/
+        void *(*OutHandlerCtxSetup)(const char *);    /*< 初始化线程上下文。by clx 20171107*/
+        void (*OutHandlerCtxFree)(void *);            /*< 释放线程上下文。by clx 20171107*/
+        void (*RegisterTests)(void);
+    } Tmqh;
+    
+    Tmqh tmqh_table[TMQH_SIZE];
+
 
 main
 ---------
@@ -121,6 +153,14 @@ PostConfLoadedSetup
             DetectContentRegister [label="DetectContentRegister"] ; 
             DetectUricontentRegister [label="DetectUricontentRegister"] ; 
             DetectBufferTypeFinalizeRegistration [label="DetectBufferTypeFinalizeRegistration"] ;
+            TmqhSetup [label="TmqhSetup\n注册队列接口"] ;
+            TmqhSimpleRegister [label="TmqhSimpleRegister\n普通队列"] ; 
+            TmqhNfqRegister [label="TmqhNfqRegister\n内核Netfilter 队列"] ;
+            TmqhPacketpoolRegister [label="TmqhPacketpoolRegister\n类似mbuf"] ;
+            TmqhFlowRegister [label="TmqhFlowRegister\n根据五元组hash的队列"]
+            SigParsePrepare [label="SigParsePrepare\n初始化sig解析正则库]
+            SCProtoNameInit [label="SCProtoNameInit\n从/etc/protocols获取协议名称"]
+
             dengdeng [label="......"] ;
             PostConfLoadedSetup->SpmTableSetup
             PostConfLoadedSetup->MpmTableSetup
@@ -146,7 +186,8 @@ PostConfLoadedSetup
                 SigTableSetup->dengdeng
                 SigTableSetup->DetectUricontentRegister
                 SigTableSetup->DetectBufferTypeFinalizeRegistration
-
+            PostConfLoadedSetup->SCProtoNameInit
+            PostConfLoadedSetup->SigParsePrepare
     }
 
     MpmTableSetup(注册多模式匹配算法)->SpmTableSetup(注册单模式匹配算法)->网卡offloading、checksum等配置读取->AppLayerSetup
@@ -259,6 +300,96 @@ PostConfLoadedSetup
     * DetectHttpUriRegister 
       也注册了Setup回调。注册回调之后，重点注册了DetectAppLayerMpmRegister和DetectAppLayerInspectEngineRegister(todo:检查相关注册)
 
+* TmqhSetup
+
+       注册4中类型队列，后续各线程交互时使用  
+
+    * TmqhSimpleRegister 
+
+            简单的普通的入队出队队列，主要注册了TmqhInputSimple和TmqhOutputSimple，TmqhInputSimple
+            输入回调，即从相应队列中获取报文，这里的input是针对ThreadVars来说的。
+
+    * TmqhNfqRegister
+
+            内核层面的队列，即 Netfilter Queue队列，与其他三种队列不同，他只需要注册OutHandler
+
+    * TmqhPacketpoolRegister
+
+            这个更像是一个dpdk中的mbuf，内核中的skb_mbuf之类的ringbuffer. 这个其实更像说是内存池，这种队列应该是用在
+            收包这一层层面。
+
+    * TmqhFlowRegister 
+            根据flow进行分发的队列,出队列与Simple是一样的，入队会根据flow的hash进行除余得到相应的队列。
+           根据配置的不同，将选择不同的分发算法:TmqhOutputFlowHash TmqhOutputFlowIPPair 
+
+        TmqhOutputFlowIPPair的部分代码 :: 
+        
+             void TmqhOutputFlowIPPair(ThreadVars *tv, Packet *p)
+             {
+
+                 int16_t qid = 0;
+                 uint32_t addr_hash = 0;
+                 int i;
+
+                 TmqhFlowCtx *ctx = (TmqhFlowCtx *)tv->outctx;
+
+                 if (p->src.family == AF_INET6) {
+
+                 for (i = 0; i < 4; i++) {
+
+                     addr_hash += p->src.addr_data32[i] + p->dst.addr_data32[i];
+                 }
+                 } else {
+
+                     addr_hash = p->src.addr_data32[0] + p->dst.addr_data32[0];
+                 }
+
+                 /* we don't have to worry about possible overflow, since
+                 * ctx->size will be lesser than 2 ** 31 for sure */
+                   qid = addr_hash % ctx->size;
+
+                 PacketQueue *q = ctx->queues[qid].q;
+                 SCMutexLock(&q->mutex_q);
+                 PacketEnqueue(q, p);
+                 SCCondSignal(&q->cond_q);
+                 SCMutexUnlock(&q->mutex_q);
+
+                 return;
+             }
+
+* SigParsePrepare 
+
+   初始化config_pcre、config_pcre_extra、option_pcre三个全局变量，后面解析使用 
+    ::
+
+        opts |= PCRE_UNGREEDY;
+        config_pcre = pcre_compile(regexstr, opts, &eb, &eo, NULL);
+        if(config_pcre == NULL)
+        {
+        
+            SCLogError(SC_ERR_PCRE_COMPILE, "pcre compile of \"%s\" failed at offset %" PRId32 ": %s", regexstr, eo, eb);
+            exit(1);
+        }
+        
+        config_pcre_extra = pcre_study(config_pcre, 0, &eb);
+        if(eb != NULL)
+        {
+        
+            SCLogError(SC_ERR_PCRE_STUDY, "pcre study failed: %s", eb);
+            exit(1);
+        }
+        
+        regexstr = OPTION_PCRE;
+        opts |= PCRE_UNGREEDY;
+        
+        option_pcre = pcre_compile(regexstr, opts, &eb, &eo, NULL);
+        if(option_pcre == NULL)
+        {
+        
+            SCLogError(SC_ERR_PCRE_COMPILE, "pcre compile of \"%s\" failed at offset %" PRId32 ": %s", regexstr, eo, eb);
+            exit(1);
+        }
+        
 
 开源引擎借鉴
 -------------
