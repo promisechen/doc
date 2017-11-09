@@ -20,7 +20,7 @@ suricata4.0.1源码分析
   | ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-nfqueue --enable-lua
 
 
-当前进度：开始分析PostConfLoadedSetup->TmqhSetup
+当前进度：开始分析PostConfLoadedSetup->MayDaemonize
 
 
 概述及全局观览
@@ -37,6 +37,7 @@ alpd_ctx              协议识别的全局变量，存放了各种协议识别�
 sigmatch_table        特征关键字匹配表，sid、priority、msg、within、distance等等。该变量主要应用于应用的识别和规则的检测。
 tmqh_table            提供了4种类型队列:simple,flow,packetpool,nfq,其中nfq不同于其他三种队列，他是内核中的Netfilter Queue。
                       simple是简单的先入先出的普通队列,packetpool
+tmm_modules           线程模块的全局数组，有pcap/pfring/netmap等收包类线程，有flow管理类
 ==================  ============================================================================================================================= 
 
 alpd_ctx介绍及内存布局
@@ -160,7 +161,14 @@ PostConfLoadedSetup
             TmqhFlowRegister [label="TmqhFlowRegister\n根据五元组hash的队列"]
             SigParsePrepare [label="SigParsePrepare\n初始化sig解析正则库]
             SCProtoNameInit [label="SCProtoNameInit\n从/etc/protocols获取协议名称"]
-
+            xxxTagInit [label="TagInitCtx/PacketAlertTagInit/ThresholdInit\nHostBitInitCtx/IPPairBitInitCtx"]
+			RegisterAllModules [label="RegisterAllModules\n注册各线程模块回调"]
+			TmModuleFlowManagerRegister [label="TmModuleFlowManagerRegister\n流表管理"]
+			TmModuleReceiveAFPRegister [label="TmModuleReceiveAFPRegister\nafp接收线程"]
+			TmModuleDecodeAFPRegister [label="TmModuleDecodeAFPRegister\nafp解码线程"]
+			AppLayerHtpNeedFileInspection [label="AppLayerHtpNeedFileInspection\n设置htp库部分配置"]
+			StorageFinalize [label="StorageFinalize\n初始化storage_map"]
+			TmModuleRunInit [label="TmModuleRunInit\n调用tm的init"]
             dengdeng [label="......"] ;
             PostConfLoadedSetup->SpmTableSetup
             PostConfLoadedSetup->MpmTableSetup
@@ -188,6 +196,16 @@ PostConfLoadedSetup
                 SigTableSetup->DetectBufferTypeFinalizeRegistration
             PostConfLoadedSetup->SCProtoNameInit
             PostConfLoadedSetup->SigParsePrepare
+            PostConfLoadedSetup->xxxTagInit
+			PostConfLoadedSetup->RegisterAllModules
+				RegisterAllModules->TmModuleFlowManagerRegister
+				RegisterAllModules->dengdeng
+				RegisterAllModules->TmModuleReceiveAFPRegister 
+				RegisterAllModules->TmModuleDecodeAFPRegister 
+			PostConfLoadedSetup->AppLayerHtpNeedFileInspection
+			PostConfLoadedSetup->StorageFinalize
+			PostConfLoadedSetup->TmModuleRunInit			
+
     }
 
     MpmTableSetup(注册多模式匹配算法)->SpmTableSetup(注册单模式匹配算法)->网卡offloading、checksum等配置读取->AppLayerSetup
@@ -390,6 +408,79 @@ PostConfLoadedSetup
             exit(1);
         }
         
+* xxxTagInit 
+    存储结构的初始化，有三种存储方式STORAGE_HOST\STORAGE_FLOW\STORAGE_IPPAIR分别用于不同类型的存储。
+    这里共初始化了host_tag_id、flow_tag_id、threshold_id、host_bit_id、ippair_bit_id5个储存实体对象。
+    应该与与规则中的tag、threshould关键字的实现相关;
+  :: 
+    
+	static StorageList *storage_list = NULL; /**< by clx 20171109 储存链表*/
+	static int storage_max_id[STORAGE_MAX];  /**< by clx 20171109 三种储存方式的id编号*/
+	static int storage_registraton_closed = 0; /**< by clx 20171109 关闭标记，当设置为1时，不在注册*/
+	static StorageMapping **storage_map = NULL;/**< by clx 20171109 将储存链表上所有storage实体做映射成二维数组，
+	通过储存类型和在该类型的储存方式对应的id进行读取。如storage_map[STORAGE_HOST][host_tag_id]读取host_tag_id的存储注册函数*/
+
+
+* DetectAddressTestConfVars、DetectPortTestConfVars
+    检查配置文件中vars.address-groups和vars.port-groups的合法性。
+
+* RegisterAllModules
+    注册线程模式:流表管理相关、报文接收方式(pcap/pfring/netmap等)
+    线程类型共下面几类:其中文接收方式使用的是RECEIVE_TM和DECODE_TM，
+    其中五元组表有MANAGEMENT_TM|TM_FLAG_STREAM_TM|TM_FLAG_DETECT_TM三个专用类型,以af-packet为例
+
+  ::
+
+      #define TM_FLAG_RECEIVE_TM      0x01
+      #define TM_FLAG_DECODE_TM       0x02
+      #define TM_FLAG_STREAM_TM       0x04
+      #define TM_FLAG_DETECT_TM       0x08
+      #define TM_FLAG_LOGAPI_TM       0x10 /**< TM is run by Log API */
+      #define TM_FLAG_MANAGEMENT_TM   0x20
+      #define TM_FLAG_COMMAND_TM      0x40
+
+  以af-packet为例:TmModuleDecodeAFPRegister和TmModuleReceiveAFPRegister分别定义了收包和解码的回调。
+    ::  
+	
+		void TmModuleReceiveAFPRegister (void)
+		{
+			tmm_modules[TMM_RECEIVEAFP].name = "ReceiveAFP";
+			tmm_modules[TMM_RECEIVEAFP].ThreadInit = NoAFPSupportExit;
+			tmm_modules[TMM_RECEIVEAFP].Func = NULL;
+			tmm_modules[TMM_RECEIVEAFP].ThreadExitPrintStats = NULL;
+			tmm_modules[TMM_RECEIVEAFP].ThreadDeinit = NULL;
+			tmm_modules[TMM_RECEIVEAFP].RegisterTests = NULL;
+			tmm_modules[TMM_RECEIVEAFP].cap_flags = 0;
+			tmm_modules[TMM_RECEIVEAFP].flags = TM_FLAG_RECEIVE_TM;
+		}
+		
+		/**
+		* \brief Registration Function for DecodeAFP.
+		* \todo Unit tests are needed for this module.
+		*/
+		void TmModuleDecodeAFPRegister (void)
+		{
+			tmm_modules[TMM_DECODEAFP].name = "DecodeAFP";
+			tmm_modules[TMM_DECODEAFP].ThreadInit = NoAFPSupportExit;
+			tmm_modules[TMM_DECODEAFP].Func = NULL;
+			tmm_modules[TMM_DECODEAFP].ThreadExitPrintStats = NULL;
+			tmm_modules[TMM_DECODEAFP].ThreadDeinit = NULL;
+			tmm_modules[TMM_DECODEAFP].RegisterTests = NULL;
+			tmm_modules[TMM_DECODEAFP].cap_flags = 0;
+			tmm_modules[TMM_DECODEAFP].flags = TM_FLAG_DECODE_TM;
+		}
+* AppLayerHtpNeedFileInspection    
+
+     为htp库设置一些标记，如解析响应、解析请求的标记
+	 
+* StorageFinalize	
+ 
+      将xxxTagInit注册的实体，将储存链表上所有storage实体做映射成二维数组，
+      通过储存类型和在该类型的储存方式对应的id进行读取。如storage_map[STORAGE_HOST][host_tag_id]读取host_tag_id的存储注册函数
+
+* TmModuleRunInit
+
+	   调用tmm_modules[i]->Init进行模块初始化
 
 开源引擎借鉴
 -------------
