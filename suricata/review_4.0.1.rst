@@ -53,6 +53,7 @@ tmqh_table对应的Tmqh结构体说明
 todo:tm_queuehandlers.h中
 
  :: 
+
     enum {
     
         TMQH_SIMPLE,
@@ -61,8 +62,7 @@ todo:tm_queuehandlers.h中
         TMQH_FLOW,
         
         TMQH_SIZE,
-    };
-    
+    }; 
     typedef struct Tmqh_ {
     
         const char *name;                          
@@ -72,8 +72,7 @@ todo:tm_queuehandlers.h中
         void *(*OutHandlerCtxSetup)(const char *);    /*< 初始化线程上下文。by clx 20171107*/
         void (*OutHandlerCtxFree)(void *);            /*< 释放线程上下文。by clx 20171107*/
         void (*RegisterTests)(void);
-    } Tmqh;
-    
+    } Tmqh; 
     Tmqh tmqh_table[TMQH_SIZE];
 
 
@@ -128,7 +127,7 @@ PostConfLoadedSetup
 .. graphviz::    
 
     digraph G {
-
+            size="1024,1024";
             label="PostConfLoadedSetup处理流程"
 
             PostConfLoadedSetup  [label="PostConfLoadedSetup"] ;
@@ -159,17 +158,28 @@ PostConfLoadedSetup
             TmqhNfqRegister [label="TmqhNfqRegister\n内核Netfilter 队列"] ;
             TmqhPacketpoolRegister [label="TmqhPacketpoolRegister\n类似mbuf"] ;
             TmqhFlowRegister [label="TmqhFlowRegister\n根据五元组hash的队列"]
-            SigParsePrepare [label="SigParsePrepare\n初始化sig解析正则库]
+            SigParsePrepare [label="SigParsePrepare\n初始化sig解析正则库"]
             SCProtoNameInit [label="SCProtoNameInit\n从/etc/protocols获取协议名称"]
             xxxTagInit [label="TagInitCtx/PacketAlertTagInit/ThresholdInit\nHostBitInitCtx/IPPairBitInitCtx"]
-			RegisterAllModules [label="RegisterAllModules\n注册各线程模块回调"]
-			TmModuleFlowManagerRegister [label="TmModuleFlowManagerRegister\n流表管理"]
-			TmModuleReceiveAFPRegister [label="TmModuleReceiveAFPRegister\nafp接收线程"]
-			TmModuleDecodeAFPRegister [label="TmModuleDecodeAFPRegister\nafp解码线程"]
-			AppLayerHtpNeedFileInspection [label="AppLayerHtpNeedFileInspection\n设置htp库部分配置"]
-			StorageFinalize [label="StorageFinalize\n初始化storage_map"]
-			TmModuleRunInit [label="TmModuleRunInit\n调用tm的init"]
+            RegisterAllModules [label="RegisterAllModules\n注册各线程模块回调"]
+            TmModuleFlowManagerRegister [label="TmModuleFlowManagerRegister\n流表管理"]
+            TmModuleReceiveAFPRegister [label="TmModuleReceiveAFPRegister\nafp接收线程"]
+            TmModuleDecodeAFPRegister [label="TmModuleDecodeAFPRegister\nafp解码线程"]
+            AppLayerHtpNeedFileInspection [label="AppLayerHtpNeedFileInspection\n设置htp库部分配置"]
+            StorageFinalize [label="StorageFinalize\n初始化storage_map"]
+            TmModuleRunInit [label="TmModuleRunInit\n调用tm的init"]
+            HostInitConfig [label="HostInitConfig\n主机内存初始化"]      
+
+            PreRunInit [label="PreRunInit\n流表，ip分片重组，tcp分片重组分配内存并进行初始化"]      
+            DefragInit [label="DefragInit\nIP分片内存初始化"]      
+            FlowInitConfig [label="FlowInitConfig\nFLOW内存初始化"]      
+            IPPairInitConfig [label="IPPairInitConfig\nIP声望内存初始化"]      
+            StreamTcpInitConfig [label="StreamTcpInitConfig\n流重组内存初始化"] 
+
             dengdeng [label="......"] ;
+            RegisterXXXParsers [label="......"] ;
+            DetectXXXXRegister [label="......"] ; 
+            TmModuleReceiveXXXRegister [label="......"] ;
             PostConfLoadedSetup->SpmTableSetup
             PostConfLoadedSetup->MpmTableSetup
             PostConfLoadedSetup->AppLayerSetup
@@ -182,7 +192,7 @@ PostConfLoadedSetup
                         RegisterHTPParsers->HTPRegisterPatternsForProtocolDetection
                         RegisterHTPParsers->AppLayerParserRegisterXXXXX
                     AppLayerParserRegisterProtocolParsers->RegisterFTPParsers
-                    AppLayerParserRegisterProtocolParsers->dengdeng
+                    AppLayerParserRegisterProtocolParsers->RegisterXXXParsers
                     AppLayerParserRegisterProtocolParsers->RegisterSSLParsers
             PostConfLoadedSetup->AppLayerProtoDetectPrepareState
                 AppLayerProtoDetectPrepareState->AppLayerProtoDetectPMMapSignatures
@@ -191,21 +201,33 @@ PostConfLoadedSetup
             PostConfLoadedSetup->SigTableSetup
                 SigTableSetup->DetectSidRegister
                 SigTableSetup->DetectContentRegister
-                SigTableSetup->dengdeng
+                SigTableSetup->DetectXXXXRegister
                 SigTableSetup->DetectUricontentRegister
                 SigTableSetup->DetectBufferTypeFinalizeRegistration
-            PostConfLoadedSetup->SCProtoNameInit
+            PostConfLoadedSetup->TmqhSetup
+                TmqhSetup->TmqhSimpleRegister
+                TmqhSetup->TmqhNfqRegister
+                TmqhSetup->TmqhPacketpoolRegister
+                TmqhSetup->TmqhFlowRegister 
             PostConfLoadedSetup->SigParsePrepare
-            PostConfLoadedSetup->xxxTagInit
-			PostConfLoadedSetup->RegisterAllModules
-				RegisterAllModules->TmModuleFlowManagerRegister
-				RegisterAllModules->dengdeng
-				RegisterAllModules->TmModuleReceiveAFPRegister 
-				RegisterAllModules->TmModuleDecodeAFPRegister 
-			PostConfLoadedSetup->AppLayerHtpNeedFileInspection
-			PostConfLoadedSetup->StorageFinalize
-			PostConfLoadedSetup->TmModuleRunInit			
+            PostConfLoadedSetup->SCProtoNameInit
 
+            PostConfLoadedSetup->xxxTagInit
+            PostConfLoadedSetup->RegisterAllModules
+                RegisterAllModules->TmModuleFlowManagerRegister
+                RegisterAllModules->TmModuleReceiveXXXRegister
+                RegisterAllModules->TmModuleReceiveAFPRegister 
+                RegisterAllModules->TmModuleDecodeAFPRegister 
+            PostConfLoadedSetup->AppLayerHtpNeedFileInspection
+            PostConfLoadedSetup->StorageFinalize
+            PostConfLoadedSetup->TmModuleRunInit
+
+            PostConfLoadedSetup->HostInitConfig  
+            PostConfLoadedSetup->PreRunInit
+                PreRunInit->DefragInit
+                PreRunInit->FlowInitConfig
+                PreRunInit->IPPairInitConfig
+                PreRunInit->StreamTcpInitConfig
     }
 
     MpmTableSetup(注册多模式匹配算法)->SpmTableSetup(注册单模式匹配算法)->网卡offloading、checksum等配置读取->AppLayerSetup
@@ -338,7 +360,7 @@ PostConfLoadedSetup
 
     * TmqhFlowRegister 
             根据flow进行分发的队列,出队列与Simple是一样的，入队会根据flow的hash进行除余得到相应的队列。
-           根据配置的不同，将选择不同的分发算法:TmqhOutputFlowHash TmqhOutputFlowIPPair 
+            根据配置的不同，将选择不同的分发算法:TmqhOutputFlowHash TmqhOutputFlowIPPair 
 
         TmqhOutputFlowIPPair的部分代码 :: 
         
@@ -412,13 +434,14 @@ PostConfLoadedSetup
     存储结构的初始化，有三种存储方式STORAGE_HOST\STORAGE_FLOW\STORAGE_IPPAIR分别用于不同类型的存储。
     这里共初始化了host_tag_id、flow_tag_id、threshold_id、host_bit_id、ippair_bit_id5个储存实体对象。
     应该与与规则中的tag、threshould关键字的实现相关;
+
   :: 
     
-	static StorageList *storage_list = NULL; /**< by clx 20171109 储存链表*/
-	static int storage_max_id[STORAGE_MAX];  /**< by clx 20171109 三种储存方式的id编号*/
-	static int storage_registraton_closed = 0; /**< by clx 20171109 关闭标记，当设置为1时，不在注册*/
-	static StorageMapping **storage_map = NULL;/**< by clx 20171109 将储存链表上所有storage实体做映射成二维数组，
-	通过储存类型和在该类型的储存方式对应的id进行读取。如storage_map[STORAGE_HOST][host_tag_id]读取host_tag_id的存储注册函数*/
+    static StorageList *storage_list = NULL; /**< by clx 20171109 储存链表*/
+    static int storage_max_id[STORAGE_MAX];  /**< by clx 20171109 三种储存方式的id编号*/
+    static int storage_registraton_closed = 0; /**< by clx 20171109 关闭标记，当设置为1时，不在注册*/
+    static StorageMapping **storage_map = NULL;/**< by clx 20171109 将储存链表上所有storage实体做映射成二维数组，
+    通过储存类型和在该类型的储存方式对应的id进行读取。如storage_map[STORAGE_HOST][host_tag_id]读取host_tag_id的存储注册函数*/
 
 
 * DetectAddressTestConfVars、DetectPortTestConfVars
@@ -441,46 +464,109 @@ PostConfLoadedSetup
 
   以af-packet为例:TmModuleDecodeAFPRegister和TmModuleReceiveAFPRegister分别定义了收包和解码的回调。
     ::  
-	
-		void TmModuleReceiveAFPRegister (void)
-		{
-			tmm_modules[TMM_RECEIVEAFP].name = "ReceiveAFP";
-			tmm_modules[TMM_RECEIVEAFP].ThreadInit = NoAFPSupportExit;
-			tmm_modules[TMM_RECEIVEAFP].Func = NULL;
-			tmm_modules[TMM_RECEIVEAFP].ThreadExitPrintStats = NULL;
-			tmm_modules[TMM_RECEIVEAFP].ThreadDeinit = NULL;
-			tmm_modules[TMM_RECEIVEAFP].RegisterTests = NULL;
-			tmm_modules[TMM_RECEIVEAFP].cap_flags = 0;
-			tmm_modules[TMM_RECEIVEAFP].flags = TM_FLAG_RECEIVE_TM;
-		}
-		
-		/**
-		* \brief Registration Function for DecodeAFP.
-		* \todo Unit tests are needed for this module.
-		*/
-		void TmModuleDecodeAFPRegister (void)
-		{
-			tmm_modules[TMM_DECODEAFP].name = "DecodeAFP";
-			tmm_modules[TMM_DECODEAFP].ThreadInit = NoAFPSupportExit;
-			tmm_modules[TMM_DECODEAFP].Func = NULL;
-			tmm_modules[TMM_DECODEAFP].ThreadExitPrintStats = NULL;
-			tmm_modules[TMM_DECODEAFP].ThreadDeinit = NULL;
-			tmm_modules[TMM_DECODEAFP].RegisterTests = NULL;
-			tmm_modules[TMM_DECODEAFP].cap_flags = 0;
-			tmm_modules[TMM_DECODEAFP].flags = TM_FLAG_DECODE_TM;
-		}
+
+        void TmModuleReceiveAFPRegister (void)
+        {
+            tmm_modules[TMM_RECEIVEAFP].name = "ReceiveAFP";
+            tmm_modules[TMM_RECEIVEAFP].ThreadInit = NoAFPSupportExit;
+            tmm_modules[TMM_RECEIVEAFP].Func = NULL;
+            tmm_modules[TMM_RECEIVEAFP].ThreadExitPrintStats = NULL;
+            tmm_modules[TMM_RECEIVEAFP].ThreadDeinit = NULL;
+            tmm_modules[TMM_RECEIVEAFP].RegisterTests = NULL;
+            tmm_modules[TMM_RECEIVEAFP].cap_flags = 0;
+            tmm_modules[TMM_RECEIVEAFP].flags = TM_FLAG_RECEIVE_TM;
+        }
+        
+        /**
+        * \brief Registration Function for DecodeAFP.
+        * \todo Unit tests are needed for this module.
+        */
+        void TmModuleDecodeAFPRegister (void)
+        {
+            tmm_modules[TMM_DECODEAFP].name = "DecodeAFP";
+            tmm_modules[TMM_DECODEAFP].ThreadInit = NoAFPSupportExit;
+            tmm_modules[TMM_DECODEAFP].Func = NULL;
+            tmm_modules[TMM_DECODEAFP].ThreadExitPrintStats = NULL;
+            tmm_modules[TMM_DECODEAFP].ThreadDeinit = NULL;
+            tmm_modules[TMM_DECODEAFP].RegisterTests = NULL;
+            tmm_modules[TMM_DECODEAFP].cap_flags = 0;
+            tmm_modules[TMM_DECODEAFP].flags = TM_FLAG_DECODE_TM;
+        }
 * AppLayerHtpNeedFileInspection    
 
      为htp库设置一些标记，如解析响应、解析请求的标记
-	 
-* StorageFinalize	
+     
+* StorageFinalize    
  
       将xxxTagInit注册的实体，将储存链表上所有storage实体做映射成二维数组，
       通过储存类型和在该类型的储存方式对应的id进行读取。如storage_map[STORAGE_HOST][host_tag_id]读取host_tag_id的存储注册函数
 
 * TmModuleRunInit
 
-	   调用tmm_modules[i]->Init进行模块初始化
+       调用tmm_modules[i]->Init进行模块初始化
+* MayDaemonize 
+
+    | 后台运行,检查是否进入Daemon模式。若需要进入Daemon模式，则会检测pidfile是
+    | 否已经存在（daemon下只能有一个实例运行），然后进行Daemonize，最后创建一个
+    | pidfile。Daemonize的主要思路是：fork->子进程调用setsid创建一个新的session
+    | ，关闭stdin、stdout、stderr，并告诉父进程 –> 父进程等待子进程通知，然后退
+    | 出 –> 子进程继续执行.
+
+* InitSignalHandler 
+    
+    | 注册各种信号,初始化信号handler。首先为SIGINT（ctrl-c触发）和SIGTERM（不带
+    | 参数kill时触发）这两个常规退出信号分别注册handler，对SIGINT的处理是设置程
+    | 序的状态标志为STOP，即让程序优雅地退出；而对SIGTERM是设置为KILL，即强杀。
+    | 接着，程序会忽略SIGPIPE（这个信号通常是在Socket通信时向已关闭的连接另一端
+    | 发送数据时收到）和SIGSYS（当进程尝试执行一个不存在的系统调用时收到）信号，
+    | 以加强程序的容错性和健壮性。
+
+* HostInitConfig 
+    与FlowInitConfig类似: host_hash,host_config
+* SCAsn1LoadConfig 
+    读取asn1-max-frames设置到全局变量asn1_max_frames_config
+* CoredumpLoadConfig
+    coredump设置 
+* DecodeGlobalConfig 
+    设置是否解析g_teredo_enabled
+* PreRunInit 
+   为流表，ip分片重组，tcp分片重组分配内存并进行初始化    
+    * StatsInit 统计初始化
+    * DefragInit 分片重组,暂不关心
+    * FlowInitConfig 
+        初始化flow的配置，flow_config是flow的全局配置,flow_hash是hash表,flow_spare_q flow节点
+        的队列，调用FlowAlloc分配内存之后，将把分配的flow放到flow_spare_q队列中。
+
+        ::
+
+          /* global flow config */
+          typedef struct FlowCnf_
+          {
+
+            uint32_t hash_rand;
+            uint32_t hash_size;  /**<by clx 20171110 hash筒的大小*/
+            uint64_t memcap;     /**<by clx 20171110 flows最大占的内存限制*/
+            uint32_t max_flows; 
+            uint32_t prealloc;   /**<by clx 20171110 最大并发数*/
+
+            uint32_t timeout_new;
+            uint32_t timeout_est;
+
+            uint32_t emerg_timeout_new;
+            uint32_t emerg_timeout_est;
+            uint32_t emergency_recovery;
+
+          } FlowConfig;
+    * IPPairInitConfig 
+         类似FlowInitConfig初始化ip的相关内存 
+    * LogFilestoreInitConfig 文件存储的配置
+    * StreamTcpInitConfig 流重组的初始化,todo:暂不看tcp流重组的细节
+    * AppLayerParserPostStreamSetup todo:暂不看tcp流重组的细节
+    * AppLayerRegisterGlobalCounters todo:设置一些计数配置，后面研究下咋用的。
+
+参考文献
+--------------
+      http://blog.csdn.net/vevenlcf/article/details/50600324
 
 开源引擎借鉴
 -------------
