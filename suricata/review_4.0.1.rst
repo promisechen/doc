@@ -20,7 +20,7 @@ suricata4.0.1源码分析
   | ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-nfqueue --enable-lua
 
 
-当前进度：开始分析PostConfLoadedSetup->MayDaemonize
+当前进度：开始分析PostConfLoadedDetectSetup->DetectEngineCtxInitReal->ActionInitConfig
 
 
 概述及全局观览
@@ -123,7 +123,6 @@ GlobalsInitPreConfig
 
 PostConfLoadedSetup
 *********************
-
 .. graphviz::    
 
     digraph G {
@@ -563,6 +562,184 @@ PostConfLoadedSetup
     * StreamTcpInitConfig 流重组的初始化,todo:暂不看tcp流重组的细节
     * AppLayerParserPostStreamSetup todo:暂不看tcp流重组的细节
     * AppLayerRegisterGlobalCounters todo:设置一些计数配置，后面研究下咋用的。
+
+PostConfLoadedDetectSetup
+***************************
+
+* SCClassConfInit  解析classification.config配置文件相关；为解析classification.config
+   ，注册正则匹配handle和相关正则。
+    从classification.config摘抄，下面的第一个规则指定了类型为attempted-admin，但是
+    他又重新设定了优先级为10，所以他最终优先级为10.而第二个规则只指定了attempted-admin，那么他就
+    使用默认优先级1.
+
+     :: 
+
+        #
+        # config classification:shortname,short description,priority
+        #
+        config classification: attempted-admin,Attempted Administrator Privilege Gain,1
+
+        # Here are a few example rules:
+        #
+        #   alert TCP any any -> any 80 (msg: "EXPLOIT ntpdx overflow";
+        #	dsize: > 128; classtype:attempted-admin; priority:10;
+        #
+        #   alert TCP any any -> any 25 (msg:"SMTP expn root"; flags:A+; \
+        #	      content:"expn root"; nocase; classtype:attempted-recon;)
+        #
+        # The first rule will set its type to "attempted-admin" and override
+        # the default priority for that type to 10.
+        #
+        # The second rule set its type to "attempted-recon" and set its
+        # priority to the default for that type.
+        #
+        
+    
+* SCReferenceConfInit();
+    解析reference.config配置文件相关；为解析reference.config，注册则匹配handle和相关正则。
+    对应的cve\exploitdb等相关连接 
+    ::
+
+        # config reference: system URL
+        config reference: bugtraq   http://www.securityfocus.com/bid/
+* SetupDelayedDetect 
+    读取detect.delayed-detect的配置，detect.delayed-detect表示在加载规则库之前就启动
+    抓包,这样能够在IPS模式下减少系统的down time（宕机时间)，但注意载离线模式下，将忽略改标记。
+
+* DetectEngineMultiTenantSetup 
+    目前给我的感觉是多级的检测,后面在看吧。
+* DetectEngineCtxInit/DetectEngineCtxInitMinimal 
+    初始化检测引擎上下文。
+   * DetectEngineCtxLoadConf 加载配置
+   * 创建各种hash表 
+     :: 
+
+         SigGroupHeadHashInit(de_ctx);
+         MpmStoreInit(de_ctx);
+         ThresholdHashInit(de_ctx);
+         DetectParseDupSigHashInit(de_ctx);
+         DetectAddressMapInit(de_ctx);
+         (void)SRepInit(de_ctx);
+
+
+   * SCClassConfLoadClassficationConfigFile 
+        读取classfication的配置,并完成初始化
+
+     * SCClassConfInitContextAndLocalResources 
+          注册hashtable de_ctx->class_conf_ht初始化以及fd文件描述符  
+
+     * SCClassConfParseFile 
+        读取解析并加入de_ctx->class_conf_ht hash表中 
+
+         * SCClassConfIsLineBlankOrComment
+            过滤掉空行和注释行。
+         * SCClassConfAddClasstype 
+            
+            解析一行并将相关字符  付给 SCClassConfClasstype 结构，而后将
+            其加到de_ctx->class_conf_ht 　hash表中，至此classification.config的
+            文件解析相关完毕。
+
+            对classification.config的做个简单的总结:
+            在PostConfLoadedDetectSetup－－》SCClassConfInit中注册了相关正则匹配对象regex，在SCClassConfInitContextAndLocalResources
+            中注册了de_ctx->class_conf_ht hash表，最后在SCClassConfAddClasstype将classification.config的相关
+            配置都加载到de_ctx->class_conf_ht hash表中。
+     
+            ::
+                
+              /**
+               * \brief Parses a line from the classification file and adds it to Classtype
+               *        hash table in DetectEngineCtx, i.e. DetectEngineCtx->class_conf_ht.
+               *
+               * \param rawstr Pointer to the string to be parsed.
+               * \param index  Relative index of the string to be parsed.
+               * \param de_ctx Pointer to the Detection Engine Context.
+               *
+               * \retval  0 On success.
+               * \retval -1 On failure.
+               */
+              static int SCClassConfAddClasstype(char *rawstr, uint8_t index, DetectEngineCtx *de_ctx)
+              {
+              
+                  char ct_name[64];
+                  char ct_desc[512];
+                  char ct_priority_str[16];
+                  int ct_priority = 0;
+                  uint8_t ct_id = index;
+              
+                  SCClassConfClasstype *ct_new = NULL;
+                  SCClassConfClasstype *ct_lookup = NULL;
+              
+              #define MAX_SUBSTRINGS 30
+                  int ret = 0;
+                  int ov[MAX_SUBSTRINGS];
+                    //by clx 20171113 之前注册了相关正则，这里进行正则的匹配，并将
+                    //名称，描述，优先级解析出来。
+                  ret = pcre_exec(regex, regex_study, rawstr, strlen(rawstr), 0, 0, ov, 30);
+                  if (ret < 0) {
+              
+                      SCLogError(SC_ERR_INVALID_SIGNATURE, "Invalid Classtype in "
+                              "classification.config file");
+                      goto error;
+                  }
+              
+                  /* retrieve the classtype name */
+                  ret = pcre_copy_substring((char *)rawstr, ov, 30, 1, ct_name, sizeof(ct_name));
+                  if (ret < 0) {
+              
+                      SCLogInfo("pcre_copy_substring() failed");
+                      goto error;
+                  }
+              
+                  /* retrieve the classtype description */
+                  ret = pcre_copy_substring((char *)rawstr, ov, 30, 2, ct_desc, sizeof(ct_desc));
+                  if (ret < 0) {
+              
+                      SCLogInfo("pcre_copy_substring() failed");
+                      goto error;
+                  }
+              
+                  /* retrieve the classtype priority */
+                  ret = pcre_copy_substring((char *)rawstr, ov, 30, 3, ct_priority_str, sizeof(ct_priority_str));
+                  if (ret < 0) {
+              
+                      SCLogInfo("pcre_copy_substring() failed");
+                      goto error;
+                  }
+                  if (strlen(ct_priority_str) == 0) {
+              
+                      goto error;
+                  }
+              
+                  ct_priority = atoi(ct_priority_str);
+                    // by clx 20171113 创建一个对象，并将其加入hash表中。 
+                  /* Create a new instance of the parsed Classtype string */
+                  ct_new = SCClassConfAllocClasstype(ct_id, ct_name, ct_desc, ct_priority);
+                  if (ct_new == NULL)
+                      goto error;
+              
+                  /* Check if the Classtype is present in the HashTable.  In case it's present
+                   * ignore it, as it is a duplicate.  If not present, add it to the table */
+                  ct_lookup = HashTableLookup(de_ctx->class_conf_ht, ct_new, 0);
+                  if (ct_lookup == NULL) {
+              
+                      if (HashTableAdd(de_ctx->class_conf_ht, ct_new, 0) < 0)
+                          SCLogDebug("HashTable Add failed");
+                  } else {
+              
+                      SCLogDebug("Duplicate classtype found inside classification.config");
+                      if (ct_new->classtype_desc) SCFree(ct_new->classtype_desc);
+                      if (ct_new->classtype) SCFree(ct_new->classtype);
+                      SCFree(ct_new);
+                  }
+              
+                  return 0;
+              
+              error:
+                  return -1;
+              }
+
+   * SCRConfLoadReferenceConfigFile 
+        与classfication类似  
 
 参考文献
 --------------
