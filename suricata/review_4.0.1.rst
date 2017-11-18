@@ -740,7 +740,19 @@ PostConfLoadedDetectSetup
 
    * SCRConfLoadReferenceConfigFile 
         与classfication类似  
+   * ActionInitConfig 
+     Load the action order from config. If none is provided,it will be default to ACTION_PASS, ACTION_DROP,
+   * VarNameStoreSetupStaging 
+        没有细看，应该是初始化一些hash表
 
+* LoadSignatures(SigLoadSignatures)
+   调用DetectLoadCompleteSigPath和ProcessSigFiles进行   
+   * DetectLoadCompleteSigPath 
+       返回规则库文件路径
+   * ProcessSigFiles 
+      调用glob获取目录下文件列表，在调用DetectLoadSigFile进行规则库加载 
+      * DetectLoadSigFile   
+        加载一个规则库文件  
 参考文献
 --------------
       http://blog.csdn.net/vevenlcf/article/details/50600324
