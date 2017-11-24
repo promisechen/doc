@@ -566,6 +566,46 @@ PostConfLoadedSetup
 PostConfLoadedDetectSetup
 ***************************
 
+.. graphviz::    
+
+    digraph G {
+            size="1024,1024";
+            label="PostConfLoadedDetectSetup处理流程"
+            
+            PostConfLoadedDetectSetup [label="PostConfLoadedDetectSetup"] ;
+            SCClassConfInit [label="SCClassConfInit\n解析classification.config配置"] ;
+            SCReferenceConfInit [label="SCReferenceConfInit\n解析reference.config配置"] ; 
+            SetupDelayedDetect [label="SetupDelayedDetect\n读取detect.delayed-detect的配置"] ; 
+            DetectEngineMultiTenantSetup [label="DetectEngineMultiTenantSetup"] ;
+            DetectEngineCtxInit(Minimal) [label="DetectEngineCtxInit(Minimal)\n初始化检测引擎上下文"] ;
+              DetectEngineCtxLoadConf [label="DetectEngineCtxLoadConf\n加载配置"] ;
+              SigGroupHeadHashInit  [label="SigGroupHeadHashInit\MpmStoreInit....\n各自hash map初始化"] ;
+              SCClassConfLoadClassficationConfigFile [label="SCClassConfLoadClassficationConfigFile\n读取classfication的配置,并完成初始化"] ;
+              SCRConfLoadReferenceConfigFile [label="SCRConfLoadReferenceConfigFile\n"];
+              ActionInitConfig [label="ActionInitConfig\n初始化Action配置"] ;
+              VarNameStoreSetupStaging [label="VarNameStoreSetupStaging\n初始化hash表"]
+            LoadSignatures [label="LoadSignatures\n加载知识库"]
+              DetectLoadCompleteSigPath [label="DetectLoadCompleteSigPath\n返回规则库文件路径"] ;
+              ProcessSigFiles  [label="ProcessSigFiles\n加载规则库"]
+                DetectLoadSigFile [label="DetectLoadSigFile\n加载一个规则库文件"]
+
+            PostConfLoadedDetectSetup->SCClassConfInit
+            PostConfLoadedDetectSetup->SCReferenceConfInit
+            PostConfLoadedDetectSetup->SetupDelayedDetect
+            PostConfLoadedDetectSetup->DetectEngineMultiTenantSetup
+            PostConfLoadedDetectSetup->DetectEngineCtxInit(Minimal)
+              DetectEngineCtxInit(Minimal)->DetectEngineCtxLoadConf 
+              DetectEngineCtxInit(Minimal)->SigGroupHeadHashInit 
+              DetectEngineCtxInit(Minimal)->SCClassConfLoadClassficationConfigFile
+              DetectEngineCtxInit(Minimal)->SCRConfLoadReferenceConfigFile 
+              DetectEngineCtxInit(Minimal)->ActionInitConfig
+              DetectEngineCtxInit(Minimal)->VarNameStoreSetupStaging
+            PostConfLoadedDetectSetup->LoadSignatures
+              LoadSignatures->DetectLoadCompleteSigPath 
+              LoadSignatures->ProcessSigFiles 
+                ProcessSigFiles->DetectLoadSigFile
+    }
+
 * SCClassConfInit  解析classification.config配置文件相关；为解析classification.config
    ，注册正则匹配handle和相关正则。
     从classification.config摘抄，下面的第一个规则指定了类型为attempted-admin，但是
@@ -752,7 +792,16 @@ PostConfLoadedDetectSetup
    * ProcessSigFiles 
       调用glob获取目录下文件列表，在调用DetectLoadSigFile进行规则库加载 
       * DetectLoadSigFile   
-        加载一个规则库文件  
+        加载一个规则库文件  将解析的规则都放到DetectEngineCtx->sig_list上
+        * DetectEngineAppendSig 
+               解析一条规则，并将解析结果写入DetectEngineCtx
+          * SigInit 加载解析一条规则 
+            * SigInitHelper 解析一条规则
+                * SigParse  解析规则
+                   * SigParseBasics 解析头部基础信息
+                   * SigParseOptions 解析头部选项信息
+        * DetectEngineSignatureIsDuplicate 检查规则是否重复\判断版本
+ 
 参考文献
 --------------
       http://blog.csdn.net/vevenlcf/article/details/50600324
